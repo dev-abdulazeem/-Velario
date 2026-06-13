@@ -1,13 +1,7 @@
 import { v2 as cloudinary } from 'cloudinary';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
 dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -17,50 +11,43 @@ cloudinary.config({
 });
 
 /**
- * Upload a file to Cloudinary
- * @param {string} filePath - Path to the file (relative or absolute)
+ * Upload a buffer to Cloudinary
+ * @param {Buffer} buffer - File buffer from multer memoryStorage
  * @param {string} folder - Cloudinary folder
+ * @param {string} mimetype - File mimetype
  */
-export const uploadToCloudinary = async (filePath, folder = 'velario/products') => {
+export const uploadToCloudinary = async (buffer, folder = 'velario/products', mimetype) => {
   try {
-    // Resolve to absolute path if relative
-    const absolutePath = path.isAbsolute(filePath) 
-      ? filePath 
-      : path.resolve(process.cwd(), filePath);
+    // Convert mimetype to format (e.g., image/jpeg -> jpg)
+    const format = mimetype?.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
 
-    console.log('Uploading to Cloudinary:', absolutePath);
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder,
+          format,
+          unique_filename: true,
+          overwrite: false,
+        },
+        (error, result) => {
+          if (error) {
+            console.error('Cloudinary upload stream error:', error);
+            reject(error);
+          } else {
+            console.log('Cloudinary upload success:', result.secure_url);
+            resolve({
+              url: result.secure_url,
+              secure_url: result.secure_url,
+              public_id: result.public_id,
+            });
+          }
+        }
+      );
 
-    if (!fs.existsSync(absolutePath)) {
-      throw new Error(`File not found: ${absolutePath}`);
-    }
-
-    const result = await cloudinary.uploader.upload(absolutePath, {
-      folder,
-      use_filename: false,
-      unique_filename: true,
-      overwrite: true,
+      uploadStream.end(buffer);
     });
-
-    // Clean up local file
-    fs.unlinkSync(absolutePath);
-    console.log('Cloudinary upload success:', result.secure_url);
-
-    return {
-      url: result.secure_url,
-      secure_url: result.secure_url,
-      public_id: result.public_id,
-    };
   } catch (error) {
     console.error('Cloudinary upload error:', error.message);
-    // Cleanup on error
-    try {
-      const absolutePath = path.isAbsolute(filePath) 
-        ? filePath 
-        : path.resolve(process.cwd(), filePath);
-      if (fs.existsSync(absolutePath)) {
-        fs.unlinkSync(absolutePath);
-      }
-    } catch (e) { /* ignore cleanup errors */ }
     throw error;
   }
 };
@@ -69,6 +56,7 @@ export const deleteFromCloudinary = async (publicId) => {
   try {
     if (!publicId) return;
     await cloudinary.uploader.destroy(publicId);
+    console.log('Cloudinary delete success:', publicId);
   } catch (error) {
     console.error('Cloudinary delete error:', error);
   }

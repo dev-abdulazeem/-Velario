@@ -3,6 +3,52 @@ import { uploadToCloudinary } from '../utils/cloudinaryUpload.js';
 import { notifySubscribersNewProduct } from './emailController.js';
 
 // ═══════════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+const toJsonParam = (value) => {
+  if (value === null || value === undefined) return '[]';
+  if (typeof value === 'string') {
+    try { 
+      JSON.parse(value); 
+      return value; 
+    } catch { 
+      return JSON.stringify([value]); 
+    }
+  }
+  if (Array.isArray(value)) return JSON.stringify(value);
+  return JSON.stringify([value]);
+};
+
+const parseSizes = (sizes) => {
+  if (!sizes) return [];
+  if (Array.isArray(sizes)) return sizes;
+  if (typeof sizes === 'string') {
+    try {
+      const parsed = JSON.parse(sizes);
+      return Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      return sizes.split(',').map(s => s.trim()).filter(Boolean);
+    }
+  }
+  return [];
+};
+
+const parseImages = (images) => {
+  if (!images) return [];
+  if (Array.isArray(images)) return images;
+  if (typeof images === 'string') {
+    try {
+      const parsed = JSON.parse(images);
+      return Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      return [images];
+    }
+  }
+  return [];
+};
+
+// ═══════════════════════════════════════════════════════════════
 //  PUBLIC ROUTES
 // ═══════════════════════════════════════════════════════════════
 
@@ -88,60 +134,6 @@ export const getCategories = async (req, res) => {
 };
 
 // ═══════════════════════════════════════════════════════════════
-//  HELPER: Safely stringify for PostgreSQL JSON/JSONB columns
-// ═══════════════════════════════════════════════════════════════
-
-const toJsonParam = (value) => {
-  if (value === null || value === undefined) return '[]';
-  if (typeof value === 'string') {
-    try { 
-      JSON.parse(value); 
-      return value; 
-    } catch { 
-      return JSON.stringify([value]); 
-    }
-  }
-  if (Array.isArray(value)) return JSON.stringify(value);
-  return JSON.stringify([value]);
-};
-
-// ═══════════════════════════════════════════════════════════════
-//  HELPER: Parse sizes from various input formats
-// ═══════════════════════════════════════════════════════════════
-
-const parseSizes = (sizes) => {
-  if (!sizes) return [];
-  if (Array.isArray(sizes)) return sizes;
-  if (typeof sizes === 'string') {
-    try {
-      const parsed = JSON.parse(sizes);
-      return Array.isArray(parsed) ? parsed : [parsed];
-    } catch {
-      return sizes.split(',').map(s => s.trim()).filter(Boolean);
-    }
-  }
-  return [];
-};
-
-// ═══════════════════════════════════════════════════════════════
-//  HELPER: Parse images from various input formats
-// ═══════════════════════════════════════════════════════════════
-
-const parseImages = (images) => {
-  if (!images) return [];
-  if (Array.isArray(images)) return images;
-  if (typeof images === 'string') {
-    try {
-      const parsed = JSON.parse(images);
-      return Array.isArray(parsed) ? parsed : [parsed];
-    } catch {
-      return [images];
-    }
-  }
-  return [];
-};
-
-// ═══════════════════════════════════════════════════════════════
 //  ADMIN: CREATE PRODUCT
 // ═══════════════════════════════════════════════════════════════
 
@@ -149,12 +141,13 @@ export const createProduct = async (req, res) => {
   try {
     let imageUrls = [];
 
+    // Upload images from memory buffers to Cloudinary
     if (req.files && req.files.length > 0) {
       const uploadPromises = req.files.map(file =>
-        uploadToCloudinary(file.path, 'velario/products')
+        uploadToCloudinary(file.buffer, 'velario/products', file.mimetype)
       );
       const results = await Promise.all(uploadPromises);
-      imageUrls = results.map(r => r.secure_url || r.url);
+      imageUrls = results.map(r => r.secure_url);
     }
 
     const {
@@ -204,6 +197,7 @@ export const createProduct = async (req, res) => {
       product: product.rows[0]
     });
 
+    // Background email notification
     notifySubscribersNewProduct(product.rows[0]).catch(err => {
       console.error('Background email notification error:', err);
     });
@@ -219,7 +213,7 @@ export const createProduct = async (req, res) => {
 };
 
 // ═══════════════════════════════════════════════════════════════
-//  ADMIN: UPDATE PRODUCT — FIXED: removed updated_at
+//  ADMIN: UPDATE PRODUCT
 // ═══════════════════════════════════════════════════════════════
 
 export const updateProduct = async (req, res) => {
@@ -237,17 +231,19 @@ export const updateProduct = async (req, res) => {
     const existingProduct = existingResult.rows[0];
     let imageUrls = parseImages(existingProduct.images);
 
+    // Upload new images from memory buffers
     if (req.files && req.files.length > 0) {
       const uploadPromises = req.files.map(file =>
-        uploadToCloudinary(file.path, 'velario/products')
+        uploadToCloudinary(file.buffer, 'velario/products', file.mimetype)
       );
       const results = await Promise.all(uploadPromises);
-      const newUrls = results.map(r => r.secure_url || r.url);
+      const newUrls = results.map(r => r.secure_url);
 
       const replaceImages = req.body.replace_images === 'true' || req.body.replace_images === true;
       imageUrls = replaceImages ? newUrls : [...imageUrls, ...newUrls];
     }
 
+    // Handle images from body (URLs sent as JSON)
     const bodyImages = parseImages(req.body.images);
     if (bodyImages.length > 0 && (!req.files || req.files.length === 0)) {
       imageUrls = bodyImages;
@@ -267,7 +263,6 @@ export const updateProduct = async (req, res) => {
     const imagesJson = toJsonParam(imageUrls);
     const sizesJson = toJsonParam(parsedSizes);
 
-    // ─── FIXED: removed updated_at = NOW() ─────────────────────
     const product = await pool.query(
       `UPDATE products
        SET 

@@ -1,7 +1,5 @@
 import express from 'express';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
 import pool from '../config/database.js';
 import {
   getAllProducts,
@@ -16,28 +14,14 @@ import {
 const router = express.Router();
 
 // ═══════════════════════════════════════════════════════════════
-//  MULTER CONFIG
+//  MULTER CONFIG — MEMORY STORAGE (no disk files, no ENOENT errors)
 // ═══════════════════════════════════════════════════════════════
 
-const uploadDir = path.join(process.cwd(), 'uploads', 'temp');
-
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
+const storage = multer.memoryStorage();
 
 const upload = multer({ 
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
@@ -59,15 +43,12 @@ router.get('/categories', getCategories);
 router.get('/search', async (req, res) => {
   const { q } = req.query;
   
-  console.log('🔍 Search hit! Query:', q);
-  
   if (!q || q.trim() === '') {
     return res.json([]);
   }
 
   try {
     const searchTerm = `%${q.trim()}%`;
-    
     const result = await pool.query(`
       SELECT * FROM products 
       WHERE name ILIKE $1 
@@ -77,11 +58,8 @@ router.get('/search', async (req, res) => {
       LIMIT 20
     `, [searchTerm]);
     
-    console.log('✅ Search results:', result.rows.length, 'products found');
-    
     res.json(result.rows);
   } catch (err) {
-    console.error('❌ Search error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -89,6 +67,7 @@ router.get('/search', async (req, res) => {
 // DYNAMIC — must be last
 router.get('/:id', getProductById);
 
+// ADMIN ROUTES
 router.post('/', upload.array('images', 5), createProduct);
 router.put('/:id', upload.array('images', 5), updateProduct);
 router.delete('/:id', deleteProduct);
