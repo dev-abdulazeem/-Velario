@@ -25,7 +25,8 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
-  'https://velario.vercel.app/',
+  'https://velario.vercel.app',
+  'https://velario-ll0n.onrender.com',
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
@@ -37,10 +38,12 @@ app.use(cors({
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Webhook raw body
+// Webhook raw body — MUST come before express.json()
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
 // Body parsers
