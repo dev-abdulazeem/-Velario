@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from 'cloudinary';
+import { Readable } from 'stream';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -18,7 +19,6 @@ cloudinary.config({
  */
 export const uploadToCloudinary = async (buffer, folder = 'velario/products', mimetype) => {
   try {
-    // Convert mimetype to format (e.g., image/jpeg -> jpg)
     const format = mimetype?.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
 
     return new Promise((resolve, reject) => {
@@ -44,7 +44,9 @@ export const uploadToCloudinary = async (buffer, folder = 'velario/products', mi
         }
       );
 
-      uploadStream.end(buffer);
+      // Convert buffer to stream and pipe to uploadStream
+      const readableStream = Readable.from(buffer);
+      readableStream.pipe(uploadStream);
     });
   } catch (error) {
     console.error('Cloudinary upload error:', error.message);
