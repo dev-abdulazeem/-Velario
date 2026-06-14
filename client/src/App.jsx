@@ -64,7 +64,7 @@ function AppContent() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/verify-email/:token" element={<VerifyEmail />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/payment/verify" element={<PaymentVerify />} />
           
           {/* Legal Pages */}
@@ -96,9 +96,6 @@ function AppContent() {
             </ProtectedRoute>
           } />
           
-         
-
-
           {/* Admin Routes */}
           <Route path="/admin" element={
             <AdminRoute>
