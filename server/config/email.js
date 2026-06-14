@@ -2,46 +2,45 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const BREVO_API_KEY = process.env.BREVO_API_KEY;
-const EMAIL_FROM = process.env.EMAIL_FROM || 'Velario <fxsol76@gmail.com>';
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const EMAIL_FROM = process.env.EMAIL_FROM || 'onboarding@resend.dev';
 
-console.log('BREVO_API_KEY:', BREVO_API_KEY ? 'Set' : 'NOT SET');
+console.log('RESEND_API_KEY:', RESEND_API_KEY ? 'Set' : 'NOT SET');
 
-if (!BREVO_API_KEY) {
-  console.error('❌ BREVO_API_KEY not set. Emails will not send.');
+if (!RESEND_API_KEY) {
+  console.error('❌ RESEND_API_KEY not set. Emails will not send.');
 }
 
 export const sendEmail = async ({ to, subject, html, text }) => {
   try {
-    if (!BREVO_API_KEY) {
-      return { success: false, error: 'Brevo API key not configured' };
+    if (!RESEND_API_KEY) {
+      return { success: false, error: 'Resend API key not configured' };
     }
 
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        'accept': 'application/json',
-        'api-key': BREVO_API_KEY,
-        'content-type': 'application/json',
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        sender: { name: 'Velario', email: 'fxsol76@gmail.com' },
-        to: [{ email: to }],
+        from: `Velario <${EMAIL_FROM}>`,
+        to: [to],
         subject,
-        htmlContent: html,
-        textContent: text,
+        html,
+        text,
       }),
     });
 
-    const responseData = await response.json();
+    const data = await response.json();
 
     if (!response.ok) {
-      console.error('Brevo API error:', responseData);
-      throw new Error(responseData.message || `HTTP ${response.status}`);
+      console.error('Resend API error:', data);
+      throw new Error(data.message || `HTTP ${response.status}`);
     }
 
-    console.log('✅ Email sent:', responseData.messageId);
-    return { success: true, messageId: responseData.messageId };
+    console.log('✅ Email sent:', data.id);
+    return { success: true, messageId: data.id };
   } catch (error) {
     console.error('❌ Email send failed:', error.message);
     return { success: false, error: error.message };

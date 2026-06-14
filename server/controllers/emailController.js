@@ -4,7 +4,11 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+const FRONTEND_URL = process.env.FRONTEND_URL || (
+  process.env.NODE_ENV === 'production' 
+    ? 'https://velario.vercel.app' 
+    : 'http://localhost:5173'
+);
 
 // ─── EMAIL LOGGING ───
 const logEmail = async (recipient, subject, type, status) => {
