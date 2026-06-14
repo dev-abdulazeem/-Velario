@@ -1,4 +1,5 @@
 import express from 'express';
+import multer from 'multer';
 import pool from '../config/database.js';
 import { 
   createProduct, 
@@ -12,9 +13,24 @@ import {
 } from '../controllers/adminController.js';
 import { getEmailLogs } from '../controllers/emailController.js';
 import { authenticate, authorizeAdmin } from '../middleware/auth.js';
-import upload from '../middleware/upload.js';
 
 const router = express.Router();
+
+// ═══════════════════════════════════════════════════════════════
+//  MULTER — MEMORY STORAGE (no disk files, Cloudinary upload)
+// ═══════════════════════════════════════════════════════════════
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'), false);
+    }
+  }
+});
 
 // All routes require admin authentication
 router.use(authenticate, authorizeAdmin);
@@ -26,7 +42,7 @@ router.use(authenticate, authorizeAdmin);
 router.get('/dashboard', getDashboardStats);
 
 // ═══════════════════════════════════════════════════════════════
-//  PRODUCTS — using productController (has toJsonParam fix)
+//  PRODUCTS — using memoryStorage + Cloudinary
 // ═══════════════════════════════════════════════════════════════
 
 router.post('/products', upload.array('images', 5), createProduct);
@@ -70,19 +86,38 @@ router.get('/customers', async (req, res) => {
 
 router.get('/analytics', async (req, res) => {
   try {
-    const days = req.query.days || 30;
+    const days = parseInt(req.query.days) || 30;
     
-    const dailySales = await pool.query(
-      `SELECT DATE(created_at) as date, 
-        COUNT(*) as orders, 
-        COALESCE(SUM(total_amount), 0) as revenue,
-        COALESCE(SUM(items_count), 0) as items
-      FROM orders
-      WHERE created_at >= NOW() - INTERVAL '${days} days'
-      AND status != 'cancelled'
-      GROUP BY DATE(created_at)
-      ORDER BY date ASC`
-    );
+    // Check if items_count column exists, fallback to counting order_items
+    let dailySalesQuery;
+    try {
+      // Try with items_count first
+      dailySalesQuery = await pool.query(
+        `SELECT DATE(created_at) as date, 
+          COUNT(*) as orders, 
+          COALESCE(SUM(total_amount), 0) as revenue,
+          COALESCE(SUM(items_count), 0) as items
+        FROM orders
+        WHERE created_at >= NOW() - INTERVAL '${days} days'
+        AND status != 'cancelled'
+        GROUP BY DATE(created_at)
+        ORDER BY date ASC`
+      );
+    } catch (colError) {
+      // Fallback: count items from order_items
+      dailySalesQuery = await pool.query(
+        `SELECT DATE(o.created_at) as date, 
+          COUNT(DISTINCT o.id) as orders, 
+          COALESCE(SUM(o.total_amount), 0) as revenue,
+          COALESCE(SUM(oi.quantity), 0) as items
+        FROM orders o
+        LEFT JOIN order_items oi ON oi.order_id = o.id
+        WHERE o.created_at >= NOW() - INTERVAL '${days} days'
+        AND o.status != 'cancelled'
+        GROUP BY DATE(o.created_at)
+        ORDER BY date ASC`
+      );
+    }
 
     const categorySales = await pool.query(
       `SELECT p.category, 
@@ -121,18 +156,18 @@ router.get('/analytics', async (req, res) => {
       WHERE status != 'cancelled'
       AND created_at >= NOW() - INTERVAL '12 months'
       GROUP BY DATE_TRUNC('month', created_at)
-      ORDER BY month ASC`
+      ORDER BY DATE_TRUNC('month', created_at) ASC`
     );
 
     res.json({
-      dailySales: dailySales.rows,
+      dailySales: dailySalesQuery.rows,
       categorySales: categorySales.rows,
       topProducts: topProducts.rows,
       monthlyStats: monthlyStats.rows,
     });
   } catch (error) {
     console.error('Analytics error:', error);
-    res.status(500).json({ message: 'Server error fetching analytics' });
+    res.status(500).json({ message: 'Server error fetching analytics', error: error.message });
   }
 });
 

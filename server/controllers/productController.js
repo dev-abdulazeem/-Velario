@@ -243,8 +243,8 @@ export const updateProduct = async (req, res) => {
       imageUrls = replaceImages ? newUrls : [...imageUrls, ...newUrls];
     }
 
-    // Handle images from body (URLs sent as JSON)
-    const bodyImages = parseImages(req.body.images);
+    // Handle images from body (URLs sent as JSON) — supports both 'images' and 'existingImages' field names
+    const bodyImages = parseImages(req.body.existingImages || req.body.images);
     if (bodyImages.length > 0 && (!req.files || req.files.length === 0)) {
       imageUrls = bodyImages;
     }

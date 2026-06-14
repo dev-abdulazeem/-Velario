@@ -63,13 +63,15 @@ export default function AdminProducts() {
     formData.append('stockQuantity', form.stockQuantity)
     formData.append('isFeatured', form.isFeatured ? 'true' : 'false')
 
+    // Handle existing images for edit mode
     if (editingProduct && editingProduct.images) {
       const existingImages = Array.isArray(editingProduct.images) 
         ? editingProduct.images 
         : (typeof editingProduct.images === 'string' ? JSON.parse(editingProduct.images) : [])
-      formData.append('images', JSON.stringify(existingImages))
+      formData.append('existingImages', JSON.stringify(existingImages))
     }
 
+    // Handle new image uploads
     if (images.length > 0) {
       formData.append('replace_images', 'true')
       images.forEach((img) => {
