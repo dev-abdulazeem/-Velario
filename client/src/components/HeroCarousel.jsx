@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react'
 
 const slides = [
   {
@@ -30,432 +29,438 @@ const slides = [
     cta: 'EXPLORE',
     link: '/shop?category=Women',
   },
+  {
+    id: 4,
+    image: 'https://images.unsplash.com/photo-1556906781-9a412961c28c?w=1920&q=80',
+    title: 'LIMITED',
+    titleGold: 'EDITION',
+    subtitle: 'Exclusive drops. Rare designs. Only for those who know.',
+    cta: 'VIEW DROPS',
+    link: '/shop?featured=true',
+  },
+  {
+    id: 5,
+    image: 'https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=1920&q=80',
+    title: 'STREET',
+    titleGold: 'CULTURE',
+    subtitle: 'Where urban energy meets luxury craftsmanship.',
+    cta: 'SHOP STREET',
+    link: '/shop?category=Men',
+  },
+  {
+    id: 6,
+    image: 'https://images.unsplash.com/photo-1515955656352-a1fa3ffcd111?w=1920&q=80',
+    title: 'PURE',
+    titleGold: 'LUXURY',
+    subtitle: 'The finest materials. The boldest statement. Uncompromising quality.',
+    cta: 'SHOP LUXURY',
+    link: '/shop',
+  },
 ]
 
 export default function HeroCarousel() {
   const [current, setCurrent] = useState(0)
   const [isAnimating, setIsAnimating] = useState(false)
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+  const [isMobile, setIsMobile] = useState(false)
+  const [textVisible, setTextVisible] = useState(true)
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
+  const [tilt, setTilt] = useState({ x: 0, y: 0 })
+  const [magnetic, setMagnetic] = useState({ x: 0, y: 0 })
+  const [breath, setBreath] = useState(0)
+  const intervalRef = useRef(null)
+  const sectionRef = useRef(null)
+  const contentRef = useRef(null)
+  const ctaRef = useRef(null)
 
-  // Track window resize for responsive behavior
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768)
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
   }, [])
 
+  // 3D Tilt + Mouse tracking
+  useEffect(() => {
+    if (isMobile) return
+    const handleMove = (e) => {
+      const rect = sectionRef.current?.getBoundingClientRect()
+      if (!rect) return
+      
+      const x = (e.clientX - rect.left) / rect.width
+      const y = (e.clientY - rect.top) / rect.height
+      
+      setMousePos({ x: x - 0.5, y: y - 0.5 })
+      setTilt({
+        x: (y - 0.5) * -8,
+        y: (x - 0.5) * 8,
+      })
+    }
+    window.addEventListener('mousemove', handleMove)
+    return () => window.removeEventListener('mousemove', handleMove)
+  }, [isMobile])
+
+  // Breathing ambient glow
+  useEffect(() => {
+    let raf
+    const animate = () => {
+      setBreath(prev => prev + 0.015)
+      raf = requestAnimationFrame(animate)
+    }
+    raf = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
+  // Magnetic CTA effect
+  const handleCtaMove = (e) => {
+    if (isMobile || !ctaRef.current) return
+    const rect = ctaRef.current.getBoundingClientRect()
+    const x = e.clientX - rect.left - rect.width / 2
+    const y = e.clientY - rect.top - rect.height / 2
+    setMagnetic({ x: x * 0.25, y: y * 0.25 })
+  }
+
+  const handleCtaLeave = () => {
+    setMagnetic({ x: 0, y: 0 })
+  }
+
   const goTo = useCallback((index) => {
-    if (isAnimating) return
+    if (isAnimating || index === current) return
     setIsAnimating(true)
-    setCurrent(index)
-    setTimeout(() => setIsAnimating(false), 800)
-  }, [isAnimating])
+    setTextVisible(false)
+    
+    setTimeout(() => {
+      setCurrent(index)
+      setTimeout(() => {
+        setTextVisible(true)
+        setIsAnimating(false)
+      }, 80)
+    }, 600)
+  }, [isAnimating, current])
 
   const next = useCallback(() => {
     goTo((current + 1) % slides.length)
   }, [current, goTo])
 
-  const prev = useCallback(() => {
-    goTo((current - 1 + slides.length) % slides.length)
-  }, [current, goTo])
-
+  // Auto-advance
   useEffect(() => {
-    const timer = setInterval(next, 6000)
-    return () => clearInterval(timer)
+    intervalRef.current = setInterval(next, 7000)
+    return () => clearInterval(intervalRef.current)
   }, [next])
 
-  // Touch swipe support
+  // Touch
   const [touchStart, setTouchStart] = useState(null)
-  const [touchEnd, setTouchEnd] = useState(null)
-  const minSwipeDistance = 50
+  const minSwipe = 50
 
-  const onTouchStart = (e) => {
-    setTouchEnd(null)
-    setTouchStart(e.targetTouches[0].clientX)
+  const onTouchStart = (e) => setTouchStart(e.targetTouches[0].clientX)
+  const onTouchEnd = (e) => {
+    if (!touchStart) return
+    const diff = touchStart - e.changedTouches[0].clientX
+    if (diff > minSwipe) next()
+    if (diff < -minSwipe) goTo((current - 1 + slides.length) % slides.length)
+    setTouchStart(null)
   }
 
-  const onTouchMove = (e) => {
-    setTouchEnd(e.targetTouches[0].clientX)
-  }
+  // Keyboard
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === 'ArrowRight') next()
+      if (e.key === 'ArrowLeft') goTo((current - 1 + slides.length) % slides.length)
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [next, current, goTo])
 
-  const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) return
-    const distance = touchStart - touchEnd
-    const isLeftSwipe = distance > minSwipeDistance
-    const isRightSwipe = distance < -minSwipeDistance
-    if (isLeftSwipe) next()
-    if (isRightSwipe) prev()
-  }
+  const slide = slides[current]
 
   return (
     <section 
+      ref={sectionRef}
+      className="relative w-full bg-[#050505] overflow-hidden select-none"
       style={{ 
-        position: 'relative', 
-        height: isMobile ? '85vh' : '100vh', 
-        minHeight: isMobile ? '500px' : '600px', 
-        maxHeight: '900px', 
-        overflow: 'hidden', 
-        backgroundColor: '#0F0F0F',
+        height: '100vh', 
+        minHeight: isMobile ? '600px' : '700px',
+        perspective: isMobile ? 'none' : '1200px',
       }}
       onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
     >
-      
-      {/* Slides */}
-      {slides.map((slide, index) => (
-        <div
-          key={slide.id}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            transition: 'all 1s ease',
-            opacity: index === current ? 1 : 0,
-            transform: index === current ? 'scale(1)' : 'scale(1.05)',
-            pointerEvents: index === current ? 'auto' : 'none',
-          }}
-        >
-          {/* Background Image */}
-          <div style={{ position: 'absolute', inset: 0 }}>
-            <img
-              src={slide.image}
-              alt={slide.title}
-              style={{ 
-                width: '100%', 
-                height: '100%', 
-                objectFit: 'cover',
-                objectPosition: isMobile ? 'center center' : 'center',
-              }}
-            />
-            {/* Mobile gradient - darker bottom for text readability */}
-            <div style={{
-              position: 'absolute',
-              inset: 0,
-              background: isMobile 
-                ? 'linear-gradient(to top, #0F0F0F 0%, rgba(15,15,15,0.7) 40%, rgba(15,15,15,0.3) 100%)'
-                : 'linear-gradient(to right, #0F0F0F 0%, rgba(15,15,15,0.85) 40%, rgba(15,15,15,0.4) 70%, transparent 100%)',
-            }} />
-            {/* Bottom fade for all */}
-            <div style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'linear-gradient(to top, #0F0F0F 0%, transparent 30%)',
-            }} />
-          </div>
-
-          {/* Content */}
-          <div style={{
-            position: 'relative',
-            height: '100%',
-            maxWidth: '1280px',
-            margin: '0 auto',
-            padding: isMobile ? '0 20px' : '0 48px',
-            display: 'flex',
-            alignItems: isMobile ? 'flex-end' : 'center',
-            paddingBottom: isMobile ? '120px' : '0',
-          }}>
-            <div style={{
-              maxWidth: isMobile ? '100%' : '560px',
-              width: '100%',
-              transition: 'all 0.7s ease 0.3s',
-              opacity: index === current ? 1 : 0,
-              transform: index === current ? 'translateY(0)' : 'translateY(32px)',
-            }}>
-              {/* Brand Label */}
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '12px', 
-                marginBottom: isMobile ? '16px' : '24px',
-              }}>
-                <div style={{ 
-                  width: isMobile ? '32px' : '48px', 
-                  height: '1px', 
-                  backgroundColor: '#D4AF37',
-                }} />
-                <span style={{ 
-                  color: '#D4AF37', 
-                  fontSize: isMobile ? '10px' : '12px', 
-                  letterSpacing: '0.3em', 
-                  fontWeight: 500,
-                }}>
-                  VELARIO
-                </span>
-              </div>
-
-              {/* Title */}
-              <h1 style={{
-                fontSize: isMobile ? 'clamp(32px, 12vw, 48px)' : 'clamp(48px, 6vw, 72px)',
-                fontWeight: 900,
-                color: '#FFFFFF',
-                lineHeight: 0.95,
-                marginBottom: '4px',
-                letterSpacing: '-0.02em',
-              }}>
-                {slide.title}
-              </h1>
-              <h1 style={{
-                fontSize: isMobile ? 'clamp(32px, 12vw, 48px)' : 'clamp(48px, 6vw, 72px)',
-                fontWeight: 900,
-                lineHeight: 0.95,
-                marginBottom: isMobile ? '16px' : '24px',
-                letterSpacing: '-0.02em',
-                background: 'linear-gradient(135deg, #D4AF37, #E8C547)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}>
-                {slide.titleGold}
-              </h1>
-
-              {/* Subtitle */}
-              <p style={{
-                color: 'rgba(255,255,255,0.6)',
-                fontSize: isMobile ? '14px' : '15px',
-                lineHeight: 1.7,
-                marginBottom: isMobile ? '24px' : '32px',
-                maxWidth: '420px',
-              }}>
-                {slide.subtitle}
-              </p>
-
-              {/* CTA Button */}
-              <Link
-                to={slide.link}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: isMobile ? '14px 24px' : '16px 32px',
-                  background: 'linear-gradient(135deg, #D4AF37, #E8C547)',
-                  color: '#0F0F0F',
-                  fontSize: isMobile ? '12px' : '13px',
-                  fontWeight: 800,
-                  letterSpacing: '0.1em',
-                  textDecoration: 'none',
-                  borderRadius: '8px',
-                  transition: 'all 0.3s',
-                  boxShadow: '0 4px 20px rgba(212,175,55,0.2)',
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.boxShadow = '0 8px 30px rgba(212,175,55,0.4)'
-                  e.currentTarget.style.transform = 'translateY(-2px)'
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.boxShadow = '0 4px 20px rgba(212,175,55,0.2)'
-                  e.currentTarget.style.transform = 'translateY(0)'
-                }}
-              >
-                {slide.cta}
-                <ArrowRight size={isMobile ? 16 : 18} />
-              </Link>
-            </div>
-          </div>
-        </div>
-      ))}
-
-      {/* Navigation Arrows - Hidden on mobile, visible on tablet+ */}
-      <button
-        onClick={prev}
+      {/* ===== AMBIENT BREATHING GLOW ===== */}
+      <div 
+        className="absolute z-[3] pointer-events-none"
         style={{
-          position: 'absolute',
-          left: isMobile ? '12px' : '32px',
-          top: '50%',
-          transform: 'translateY(-50%)',
-          width: isMobile ? '36px' : '48px',
-          height: isMobile ? '36px' : '48px',
+          width: '1000px',
+          height: '1000px',
           borderRadius: '50%',
-          border: '1px solid rgba(255,255,255,0.2)',
-          background: 'rgba(0,0,0,0.3)',
-          backdropFilter: 'blur(4px)',
-          display: isMobile ? 'none' : 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'rgba(255,255,255,0.6)',
-          cursor: 'pointer',
-          transition: 'all 0.3s',
-          zIndex: 10,
-        }}
-        onMouseEnter={e => {
-          e.currentTarget.style.color = '#D4AF37'
-          e.currentTarget.style.borderColor = '#D4AF37'
-        }}
-        onMouseLeave={e => {
-          e.currentTarget.style.color = 'rgba(255,255,255,0.6)'
-          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
-        }}
-      >
-        <ChevronLeft size={20} />
-      </button>
-      <button
-        onClick={next}
-        style={{
-          position: 'absolute',
-          right: isMobile ? '12px' : '32px',
-          top: '50%',
-          transform: 'translateY(-50%)',
-          width: isMobile ? '36px' : '48px',
-          height: isMobile ? '36px' : '48px',
-          borderRadius: '50%',
-          border: '1px solid rgba(255,255,255,0.2)',
-          background: 'rgba(0,0,0,0.3)',
-          backdropFilter: 'blur(4px)',
-          display: isMobile ? 'none' : 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'rgba(255,255,255,0.6)',
-          cursor: 'pointer',
-          transition: 'all 0.3s',
-          zIndex: 10,
-        }}
-        onMouseEnter={e => {
-          e.currentTarget.style.color = '#D4AF37'
-          e.currentTarget.style.borderColor = '#D4AF37'
-        }}
-        onMouseLeave={e => {
-          e.currentTarget.style.color = 'rgba(255,255,255,0.6)'
-          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
-        }}
-      >
-        <ChevronRight size={20} />
-      </button>
-
-      {/* Mobile swipe hint */}
-      {isMobile && (
-        <div style={{
-          position: 'absolute',
-          bottom: '80px',
+          background: `radial-gradient(circle, rgba(212,175,55,${0.03 + Math.sin(breath) * 0.02}) 0%, transparent 65%)`,
           left: '50%',
-          transform: 'translateX(-50%)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          zIndex: 10,
-          opacity: 0.4,
-        }}>
-          <ChevronLeft size={14} color="#fff" />
-          <span style={{ color: '#fff', fontSize: '11px', letterSpacing: '0.1em' }}>SWIPE</span>
-          <ChevronRight size={14} color="#fff" />
-        </div>
-      )}
+          top: '50%',
+          transform: `translate(-50%, -50%) translate(${mousePos.x * 80}px, ${mousePos.y * 80}px) scale(${1 + Math.sin(breath * 0.7) * 0.15})`,
+          filter: 'blur(120px)',
+          transition: 'transform 2s ease-out',
+        }}
+      />
 
-      {/* Slide Indicators */}
-      <div style={{
-        position: 'absolute',
-        bottom: isMobile ? '24px' : '32px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: isMobile ? '16px' : '24px',
-        zIndex: 10,
-      }}>
-        {slides.map((_, index) => (
-          <button
-            key={index}
-            onClick={() => goTo(index)}
+      {/* ===== FLOATING PARTICLES ===== */}
+      <div className="absolute inset-0 z-[5] pointer-events-none overflow-hidden">
+        {[...Array(25)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute rounded-full"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '4px 0',
+              width: (Math.random() * 3 + 1) + 'px',
+              height: (Math.random() * 3 + 1) + 'px',
+              left: (Math.random() * 100) + '%',
+              top: (Math.random() * 100) + '%',
+              backgroundColor: i % 3 === 0 ? '#D4AF37' : '#fff',
+              opacity: 0.06 + Math.sin(breath + i) * 0.04,
+              animation: `float ${12 + Math.random() * 18}s linear infinite`,
+              animationDelay: `${Math.random() * 12}s`,
+              transform: `translate(${mousePos.x * (i % 5 === 0 ? 60 : 25)}px, ${mousePos.y * (i % 5 === 0 ? 60 : 25)}px)`,
+              transition: 'transform 2s ease-out',
             }}
-          >
-            <span style={{
-              fontSize: isMobile ? '11px' : '12px',
-              fontWeight: 700,
-              color: index === current ? '#FFFFFF' : 'rgba(255,255,255,0.3)',
-              transition: 'color 0.3s',
-              minWidth: '20px',
-            }}>
-              {String(index + 1).padStart(2, '0')}
-            </span>
-            <div style={{
-              height: '2px',
-              borderRadius: '1px',
-              transition: 'all 0.5s ease',
-              width: index === current ? (isMobile ? '32px' : '48px') : (isMobile ? '16px' : '24px'),
-              backgroundColor: index === current ? '#D4AF37' : 'rgba(255,255,255,0.2)',
-            }} />
-          </button>
+          />
         ))}
       </div>
 
-      {/* Scroll Indicator - Desktop only */}
-      {!isMobile && (
-        <div style={{
-          position: 'absolute',
-          bottom: '32px',
-          right: '32px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '8px',
-          zIndex: 10,
-        }}>
-          <span style={{ 
-            color: 'rgba(255,255,255,0.3)', 
-            fontSize: '10px', 
-            letterSpacing: '0.2em', 
-            writingMode: 'vertical-lr',
-          }}>
-            SCROLL
-          </span>
-          <div style={{
-            width: '1px',
-            height: '40px',
-            background: 'linear-gradient(to bottom, #D4AF37, transparent)',
-            animation: 'scrollPulse 2s ease-in-out infinite',
-          }} />
-        </div>
-      )}
-
-      {/* Side Social Icons - Desktop Only */}
-      {!isMobile && (
-        <div style={{
-          position: 'absolute',
-          right: '32px',
-          top: '50%',
-          transform: 'translateY(-50%)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '16px',
-          zIndex: 10,
-        }}>
-          {['IG', 'FB', 'TW'].map((social, i) => (
-            <a
-              key={i}
-              href="#"
-              style={{
-                color: 'rgba(255,255,255,0.3)',
-                fontSize: '10px',
-                letterSpacing: '0.15em',
-                textDecoration: 'none',
-                writingMode: 'vertical-lr',
-                transition: 'color 0.3s',
+      {/* ===== BACKGROUND IMAGES ===== */}
+      <div className="absolute inset-0">
+        {slides.map((s, i) => (
+          <div
+            key={s.id}
+            className="absolute inset-0"
+            style={{
+              opacity: i === current ? 1 : 0,
+              transform: i === current 
+                ? `scale(1.02) translate(${mousePos.x * -15}px, ${mousePos.y * -15}px)` 
+                : 'scale(1.12)',
+              zIndex: i === current ? 2 : 1,
+              transition: 'opacity 2s cubic-bezier(0.4, 0, 0.2, 1), transform 2s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          >
+            <img
+              src={s.image}
+              alt={s.title}
+              className="w-full h-full object-cover"
+              style={{ objectPosition: isMobile ? 'center 25%' : 'center' }}
+              loading={i === 0 ? 'eager' : 'lazy'}
+              onError={(e) => {
+                e.target.src = 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=1920&q=80'
               }}
-              onMouseEnter={e => e.currentTarget.style.color = '#D4AF37'}
-              onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
-            >
-              {social}
-            </a>
-          ))}
-          <div style={{ width: '1px', height: '40px', backgroundColor: 'rgba(255,255,255,0.2)' }} />
-        </div>
-      )}
+            />
+          </div>
+        ))}
 
-      {/* Keyframe animation */}
+        {/* Gradients */}
+        <div className="absolute inset-0 z-10" style={{
+          background: isMobile
+            ? 'linear-gradient(to top, #050505 0%, rgba(5,5,5,0.96) 15%, rgba(5,5,5,0.8) 38%, rgba(5,5,5,0.45) 65%, rgba(5,5,5,0.15) 100%)'
+            : 'linear-gradient(to right, #050505 0%, rgba(5,5,5,0.98) 38%, rgba(5,5,5,0.9) 52%, rgba(5,5,5,0.6) 72%, rgba(5,5,5,0.2) 100%)'
+        }} />
+        <div className="absolute inset-0 z-10" style={{
+          background: 'linear-gradient(to top, rgba(5,5,5,0.9) 0%, transparent 28%)'
+        }} />
+        <div className="absolute inset-0 z-10" style={{
+          background: 'radial-gradient(ellipse at 18% 50%, transparent 22%, rgba(5,5,5,0.7) 100%)'
+        }} />
+      </div>
+
+      {/* ===== FILM GRAIN ===== */}
+      <div 
+        className="absolute inset-0 z-[15] pointer-events-none opacity-[0.04]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+          backgroundSize: '200px 200px',
+        }}
+      />
+
+      {/* ===== CONTENT — 3D TILT ===== */}
+      <div 
+        ref={contentRef}
+        className="relative z-20 h-full flex flex-col justify-end sm:justify-center px-6 sm:px-10 lg:px-16 pb-32 sm:pb-0"
+        style={{
+          transform: isMobile ? 'none' : `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) translateZ(20px)`,
+          transformStyle: 'preserve-3d',
+          transition: 'transform 0.3s ease-out',
+        }}
+      >
+        <div className="w-full" style={{ transform: isMobile ? 'none' : 'translateZ(40px)' }}>
+          
+          {/* Brand Label */}
+          <div 
+            className="flex items-center gap-3 mb-5 sm:mb-7"
+            style={{
+              opacity: textVisible ? 1 : 0,
+              transform: textVisible ? 'translateY(0) translateZ(60px)' : 'translateY(20px) translateZ(60px)',
+              transition: 'all 0.7s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+          >
+            <div className="w-8 sm:w-12 h-[1px] bg-[#D4AF37]" />
+            <span className="text-[#D4AF37] text-[10px] sm:text-xs tracking-[0.4em] font-semibold uppercase">
+              VELARIO
+            </span>
+          </div>
+
+          {/* Title Line 1 */}
+          <div className="overflow-hidden mb-0">
+            <h1 
+              className="text-white font-black leading-[0.9] tracking-tight"
+              style={{
+                fontSize: isMobile ? 'clamp(36px, 12vw, 56px)' : 'clamp(56px, 7vw, 100px)',
+                opacity: textVisible ? 1 : 0,
+                transform: textVisible ? 'translateY(0) translateZ(80px)' : 'translateY(110%) translateZ(80px)',
+                transition: 'all 0.9s cubic-bezier(0.16, 1, 0.3, 1)',
+                transitionDelay: textVisible ? '100ms' : '0ms',
+              }}
+            >
+              {slide.title}
+            </h1>
+          </div>
+
+          {/* Gold Title */}
+          <div className="overflow-hidden mb-5 sm:mb-8">
+            <h1 
+              className="font-black leading-[0.9] tracking-tight"
+              style={{
+                fontSize: isMobile ? 'clamp(36px, 12vw, 56px)' : 'clamp(56px, 7vw, 100px)',
+                background: 'linear-gradient(90deg, #D4AF37, #E8C547, #D4AF37, #C9A433)',
+                backgroundSize: '300% 100%',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                animation: textVisible ? 'shimmer 5s ease infinite' : 'none',
+                opacity: textVisible ? 1 : 0,
+                transform: textVisible ? 'translateY(0) translateZ(80px)' : 'translateY(110%) translateZ(80px)',
+                transition: 'all 0.9s cubic-bezier(0.16, 1, 0.3, 1)',
+                transitionDelay: textVisible ? '220ms' : '0ms',
+              }}
+            >
+              {slide.titleGold}
+            </h1>
+          </div>
+
+          {/* Subtitle */}
+          <p 
+            className="text-white/50 text-sm sm:text-lg leading-relaxed mb-7 sm:mb-10 max-w-md sm:max-w-lg"
+            style={{
+              opacity: textVisible ? 1 : 0,
+              transform: textVisible ? 'translateY(0) translateZ(40px)' : 'translateY(20px) translateZ(40px)',
+              transition: 'all 0.7s cubic-bezier(0.16, 1, 0.3, 1)',
+              transitionDelay: textVisible ? '380ms' : '0ms',
+            }}
+          >
+            {slide.subtitle}
+          </p>
+
+          {/* CTAs — Magnetic Effect */}
+          <div
+            className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6"
+            style={{
+              opacity: textVisible ? 1 : 0,
+              transform: textVisible ? 'translateY(0) translateZ(60px)' : 'translateY(20px) translateZ(60px)',
+              transition: 'all 0.7s cubic-bezier(0.16, 1, 0.3, 1)',
+              transitionDelay: textVisible ? '480ms' : '0ms',
+            }}
+          >
+            <div
+              ref={ctaRef}
+              onMouseMove={handleCtaMove}
+              onMouseLeave={handleCtaLeave}
+              style={{
+                transform: isMobile ? 'none' : `translate(${magnetic.x}px, ${magnetic.y}px)`,
+                transition: 'transform 0.2s ease-out',
+              }}
+            >
+              <Link
+                to={slide.link}
+                className="group inline-flex items-center gap-4 px-10 py-4 sm:px-12 sm:py-5 bg-[#D4AF37] hover:bg-[#c9a433] text-[#050505] text-[11px] sm:text-xs font-black tracking-[0.2em] rounded-xl no-underline transition-all duration-500 hover:shadow-[0_0_100px_rgba(212,175,55,0.35)] hover:-translate-y-1 active:translate-y-0 active:scale-[0.98]"
+              >
+                {slide.cta}
+                <span className="w-6 h-[1px] bg-[#050505]/30 group-hover:w-10 group-hover:bg-[#050505]/50 transition-all duration-500" />
+              </Link>
+            </div>
+            
+            <Link
+              to="/shop"
+              className="inline-flex items-center gap-2 text-white/30 hover:text-white/60 text-[11px] sm:text-xs tracking-[0.15em] uppercase font-medium no-underline transition-all duration-500 py-4 sm:py-5 group"
+            >
+              <span className="w-6 h-[1px] bg-white/20 group-hover:w-10 group-hover:bg-[#D4AF37]/40 transition-all duration-500" />
+              View All
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* ===== SCROLL INDICATOR ===== */}
+      <div 
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-3"
+        style={{
+          opacity: textVisible ? 1 : 0,
+          transition: 'opacity 0.7s ease 0.6s',
+        }}
+      >
+        <span className="text-white/20 text-[9px] tracking-[0.3em] uppercase font-medium">Scroll</span>
+        <div className="w-[1px] h-10 bg-white/10 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-4 bg-[#D4AF37] animate-scrollDown" />
+        </div>
+      </div>
+
+      {/* ===== BOTTOM BAR ===== */}
+      <div className="absolute bottom-0 left-0 right-0 z-20 px-6 sm:px-10 lg:px-16 pb-6 sm:pb-8">
+        <div className="flex items-end justify-between">
+          <div className="overflow-hidden">
+            <div
+              className="transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
+              style={{
+                opacity: textVisible ? 1 : 0,
+                transform: textVisible ? 'translateY(0)' : 'translateY(20px)',
+              }}
+            >
+              <p className="text-white/8 text-[10px] sm:text-[11px] tracking-[0.25em] uppercase font-medium">
+                {slide.title} {slide.titleGold}
+              </p>
+            </div>
+          </div>
+
+          {/* Slide bars */}
+          <div className="hidden sm:flex items-center gap-2">
+            {slides.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => goTo(i)}
+                className="p-1 cursor-pointer bg-transparent border-none"
+              >
+                <div
+                  className="transition-all duration-700 ease-out rounded-full"
+                  style={{
+                    width: i === current ? '24px' : '4px',
+                    height: '3px',
+                    backgroundColor: i === current ? 'rgba(212,175,55,0.6)' : 'rgba(255,255,255,0.06)',
+                  }}
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ===== ANIMATIONS ===== */}
       <style>{`
-        @keyframes scrollPulse {
-          0%, 100% { opacity: 0.3; transform: scaleY(0.5); }
-          50% { opacity: 1; transform: scaleY(1); }
+        @keyframes float {
+          0% { transform: translateY(0) translateX(0); opacity: 0; }
+          5% { opacity: 0.1; }
+          95% { opacity: 0.1; }
+          100% { transform: translateY(-100vh) translateX(50px); opacity: 0; }
+        }
+        @keyframes shimmer {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes scrollDown {
+          0% { transform: translateY(-100%); opacity: 0; }
+          30% { opacity: 1; }
+          70% { opacity: 1; }
+          100% { transform: translateY(400%); opacity: 0; }
         }
       `}</style>
     </section>
