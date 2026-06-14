@@ -311,8 +311,8 @@ const getVerificationTemplate = (name, token) => {
     <p style="${s({ 'font-family': "Inter, sans-serif", 'font-size': '16px', 'color': C.textMuted, 'line-height': '1.7', 'margin': '0 0 32px', 'max-width': '480px' })}">
       Hi ${name}, you're one step away from joining an exclusive community. Verify your email to unlock premium access to our curated footwear collection.
     </p>
-    ${btnPrimary(`${FRONTEND_URL}/verify-email?token=${token}`, 'Verify My Email')}
-    ${highlightBox('Or copy this link into your browser:', `${FRONTEND_URL}/verify-email?token=${token}`)}
+    ${btnPrimary(`${FRONTEND_URL}/verify-email/${token}`, 'Verify My Email')}
+    ${highlightBox('Or copy this link into your browser:', `${FRONTEND_URL}/verify-email/${token}`)}
     <p style="${s({ 'font-family': "Inter, sans-serif", 'font-size': '12px', 'color': C.textSubtle, 'text-align': 'center', 'margin-top': '24px' })}">
       This link expires in 24 hours. If you didn't create an account, you can safely ignore this email.
     </p>

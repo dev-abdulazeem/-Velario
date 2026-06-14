@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { CheckCircle, XCircle } from 'lucide-react'
 import api from '../api/axios'
 
 export default function VerifyEmail() {
-  const [searchParams] = useSearchParams()
+  const { token } = useParams()
   const navigate = useNavigate()
   const [status, setStatus] = useState('verifying')
 
   useEffect(() => {
-    const token = searchParams.get('token')
     if (!token) {
       setStatus('error')
       return
@@ -27,7 +26,7 @@ export default function VerifyEmail() {
     }
 
     verify()
-  }, [searchParams, navigate])
+  }, [token, navigate])
 
   return (
     <div className="pt-20 min-h-screen bg-velario-black flex items-center justify-center animate-fade-in">
