@@ -33,14 +33,15 @@ export const sendEmail = async ({ to, subject, html, text }) => {
       }),
     });
 
+    const responseData = await response.json();
+
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `HTTP ${response.status}`);
+      console.error('Brevo API error:', responseData);
+      throw new Error(responseData.message || `HTTP ${response.status}`);
     }
 
-    const data = await response.json();
-    console.log('✅ Email sent:', data.messageId);
-    return { success: true, messageId: data.messageId };
+    console.log('✅ Email sent:', responseData.messageId);
+    return { success: true, messageId: responseData.messageId };
   } catch (error) {
     console.error('❌ Email send failed:', error.message);
     return { success: false, error: error.message };
