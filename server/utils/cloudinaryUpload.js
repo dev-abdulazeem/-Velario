@@ -1,23 +1,24 @@
 import cloudinary from '../config/cloudinary.js';
-import fs from 'fs';
-import path from 'path';
 
-export const uploadToCloudinary = async (filePath, folder = 'velario/products') => {
+/**
+ * Upload a buffer to Cloudinary using base64 data URI
+ * @param {Buffer} buffer - File buffer from multer memoryStorage
+ * @param {string} folder - Cloudinary folder
+ * @param {string} mimetype - File mimetype
+ */
+export const uploadToCloudinary = async (buffer, folder = 'velario/products', mimetype) => {
   try {
-    // Resolve to absolute path if relative
-    const absolutePath = path.isAbsolute(filePath) 
-      ? filePath 
-      : path.join(process.cwd(), filePath);
+    const format = mimetype?.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+    
+    // Convert buffer to base64 data URI
+    const base64String = buffer.toString('base64');
+    const dataUri = `data:${mimetype};base64,${base64String}`;
 
-    console.log('Uploading file from:', absolutePath);
-
-    // Check if file exists
-    if (!fs.existsSync(absolutePath)) {
-      throw new Error(`File not found: ${absolutePath}`);
-    }
-
-    const result = await cloudinary.uploader.upload(absolutePath, {
+    const result = await cloudinary.uploader.upload(dataUri, {
       folder,
+      format,
+      unique_filename: true,
+      overwrite: false,
       transformation: [
         { width: 1200, height: 1200, crop: 'limit' },
         { quality: 'auto', fetch_format: 'auto' }
@@ -25,24 +26,14 @@ export const uploadToCloudinary = async (filePath, folder = 'velario/products') 
       resource_type: 'auto',
     });
 
-    // Delete local temp file after upload
-    fs.unlinkSync(absolutePath);
-    console.log('Uploaded to Cloudinary:', result.secure_url);
-
+    console.log('Cloudinary upload success:', result.secure_url);
+    
     return {
       url: result.secure_url,
-      publicId: result.public_id,
+      secure_url: result.secure_url,
+      public_id: result.public_id,
     };
   } catch (error) {
-    // Clean up local file on error if it exists
-    const absolutePath = path.isAbsolute(filePath) 
-      ? filePath 
-      : path.join(process.cwd(), filePath);
-      
-    if (fs.existsSync(absolutePath)) {
-      fs.unlinkSync(absolutePath);
-    }
-    
     console.error('Cloudinary upload error:', error.message);
     throw error;
   }
@@ -50,7 +41,9 @@ export const uploadToCloudinary = async (filePath, folder = 'velario/products') 
 
 export const deleteFromCloudinary = async (publicId) => {
   try {
+    if (!publicId) return;
     await cloudinary.uploader.destroy(publicId);
+    console.log('Cloudinary delete success:', publicId);
     return true;
   } catch (error) {
     console.error('Cloudinary delete error:', error);
