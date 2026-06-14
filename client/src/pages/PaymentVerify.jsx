@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { useCart } from '../context/CartContext'
 import { usePaystack } from '../hooks/usePaystack'
 
 export default function PaymentVerify() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { token } = useAuth()
+  const { clearCart } = useCart()
   const { verifyPayment } = usePaystack()
   const [status, setStatus] = useState('verifying')
 
@@ -23,10 +25,13 @@ export default function PaymentVerify() {
 
     verifyPayment(ref, token)
       .then(data => {
+        if (data.status === 'success') {
+          clearCart()
+        }
         setStatus(data.status === 'success' ? 'success' : 'failed')
       })
       .catch(() => setStatus('failed'))
-  }, [reference, trxref, token, verifyPayment])
+  }, [reference, trxref, token, verifyPayment, clearCart])
 
   if (status === 'verifying') {
     return (
