@@ -22,6 +22,20 @@ const logEmail = async (recipient, subject, type, status) => {
   }
 };
 
+// ─── CHECK IF EMAIL ALREADY SENT ───
+const wasEmailSent = async (email, type, orderId) => {
+  try {
+    const result = await pool.query(
+      'SELECT id FROM email_logs WHERE recipient = $1 AND type = $2 AND subject LIKE $3 LIMIT 1',
+      [email, type, `%#${orderId}%`]
+    );
+    return result.rows.length > 0;
+  } catch (error) {
+    console.error('Email check error:', error);
+    return false;
+  }
+};
+
 // ═══════════════════════════════════════════════════════════════
 //  COLOR SYSTEM
 // ═══════════════════════════════════════════════════════════════
@@ -725,6 +739,12 @@ export const sendWelcomeEmail = async (email, name) => {
 };
 
 export const sendOrderConfirmation = async (email, name, orderId, total, items) => {
+  const alreadySent = await wasEmailSent(email, 'order_confirmation', orderId);
+  if (alreadySent) {
+    console.log(`📧 Order confirmation already sent to ${email} for #${orderId}`);
+    return { success: true, skipped: true };
+  }
+
   const result = await sendEmail({
     to: email,
     subject: `Order Confirmed — #${orderId}`,
@@ -735,6 +755,12 @@ export const sendOrderConfirmation = async (email, name, orderId, total, items) 
 };
 
 export const sendOrderShipped = async (email, name, orderId, trackingNumber) => {
+  const alreadySent = await wasEmailSent(email, 'order_shipped', orderId);
+  if (alreadySent) {
+    console.log(`📧 Shipped email already sent to ${email} for #${orderId}`);
+    return { success: true, skipped: true };
+  }
+
   const result = await sendEmail({
     to: email,
     subject: `Your Order is On Its Way — #${orderId}`,
@@ -745,6 +771,12 @@ export const sendOrderShipped = async (email, name, orderId, trackingNumber) => 
 };
 
 export const sendOrderDelivered = async (email, name, orderId) => {
+  const alreadySent = await wasEmailSent(email, 'order_delivered', orderId);
+  if (alreadySent) {
+    console.log(`📧 Delivered email already sent to ${email} for #${orderId}`);
+    return { success: true, skipped: true };
+  }
+
   const result = await sendEmail({
     to: email,
     subject: `Delivered! — Order #${orderId}`,
@@ -779,6 +811,12 @@ export const sendPasswordResetEmail = async (email, name, token) => {
 // ═══════════════════════════════════════════════════════════════
 
 export const sendPaymentConfirmation = async (email, name, orderId, totalAmount, items, reference) => {
+  const alreadySent = await wasEmailSent(email, 'payment_confirmation', orderId);
+  if (alreadySent) {
+    console.log(`📧 Payment confirmation already sent to ${email} for #${orderId}`);
+    return { success: true, skipped: true };
+  }
+
   const result = await sendEmail({
     to: email,
     subject: `Payment Confirmed — Order #${orderId}`,
