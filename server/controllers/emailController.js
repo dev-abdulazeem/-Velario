@@ -421,7 +421,7 @@ const getOrderConfirmationTemplate = (name, orderId, total, items) => {
         </td>
       </tr>
     </table>
-    ${btnPrimary(`${FRONTEND_URL}/orders/${orderId}`, 'Track My Order')}
+    ${btnPrimary(`${FRONTEND_URL}/orders?order=${orderId}`, 'Track My Order')}
     ${glassCard(`
       <p style="${s({ 'font-family': "Inter, sans-serif", 'font-size': '14px', 'color': C.textMuted, 'line-height': '1.7', 'margin': '0', 'text-align': 'center' })}">
         You'll receive a shipping notification once your order leaves our atelier.<br>
@@ -464,7 +464,7 @@ const getOrderShippedTemplate = (name, orderId, trackingNumber) => {
         </td>
       </tr>
     </table>
-    ${btnPrimary(`${FRONTEND_URL}/orders/${orderId}`, 'Track Package')}
+    ${btnPrimary(`${FRONTEND_URL}/orders?order=${orderId}`, 'Track Package')}
   </td>
 </tr>
   `;
@@ -509,7 +509,7 @@ const getOrderDeliveredTemplate = (name, orderId) => {
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:collapse;">
             <tr>
               <td style="${s({ 'border': `2px solid ${C.accent}`, 'border-radius': '14px', 'text-align': 'center' })}">
-                <a href="${FRONTEND_URL}/orders/${orderId}" style="${s({ 'display': 'inline-block', 'padding': '16px 40px', 'color': C.accent, 'font-family': "Inter, sans-serif", 'font-size': '12px', 'font-weight': '700', 'letter-spacing': '0.1em', 'text-transform': 'uppercase', 'text-decoration': 'none' })}">View Order</a>
+                <a href="${FRONTEND_URL}/orders?order=${orderId}" style="${s({ 'display': 'inline-block', 'padding': '16px 40px', 'color': C.accent, 'font-family': "Inter, sans-serif", 'font-size': '12px', 'font-weight': '700', 'letter-spacing': '0.1em', 'text-transform': 'uppercase', 'text-decoration': 'none' })}">View Order</a>
               </td>
             </tr>
           </table>
@@ -584,11 +584,11 @@ const getPasswordResetTemplate = (name, token) => {
     <p style="${s({ 'font-family': "Inter, sans-serif", 'font-size': '16px', 'color': C.textMuted, 'line-height': '1.7', 'margin': '0 0 32px', 'max-width': '480px' })}">
       Hi ${name}, we received a request to reset your Velario account password. Click below to create a new secure password.
     </p>
-    ${btnPrimary(`${FRONTEND_URL}/reset-password?token=${token}`, 'Reset Password')}
+    ${btnPrimary(`${FRONTEND_URL}/reset-password/${token}`, 'Reset Password')}
     ${highlightBox('This link expires in 1 hour for your security. If you didn\'t request this reset, you can safely ignore this email — your account remains secure.')}
     <p style="${s({ 'font-family': "Inter, sans-serif", 'font-size': '12px', 'color': C.textSubtle, 'text-align': 'center', 'margin-top': '24px' })}">
       Or copy this link:<br>
-      <span style="${s({ 'font-family': "SF Mono, Courier New, monospace", 'font-size': '12px', 'color': C.accent, 'word-break': 'break-all' })}">${FRONTEND_URL}/reset-password?token=${token}</span>
+      <span style="${s({ 'font-family': "SF Mono, Courier New, monospace", 'font-size': '12px', 'color': C.accent, 'word-break': 'break-all' })}">${FRONTEND_URL}/reset-password/${token}</span>
     </p>
   </td>
 </tr>
@@ -681,7 +681,7 @@ const getPaymentConfirmationTemplate = (name, orderId, totalAmount, items, refer
       </tr>
     </table>
 
-    ${btnPrimary(`${FRONTEND_URL}/orders/${orderId}`, 'Track My Order')}
+    ${btnPrimary(`${FRONTEND_URL}/orders?order=${orderId}`, 'Track My Order')}
 
     ${glassCard(`
       <p style="${s({ 'font-family': "Inter, sans-serif", 'font-size': '14px', 'color': C.textMuted, 'line-height': '1.7', 'margin': '0', 'text-align': 'center' })}">
