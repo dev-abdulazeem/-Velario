@@ -17,8 +17,8 @@ const PARTICLES = [
 const FALLBACK_PRODUCT = {
   id: 'featured-fallback',
   name: 'Velario Elite Runner',
-  price: 299,
-  originalPrice: 399,
+  price: 45000,
+  originalPrice: 60000,
   images: ['https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=800&q=80'],
 }
 
@@ -71,18 +71,18 @@ export default function FeaturedSection() {
   }, [isVisible])
 
   const priceDisplay = useMemo(() => {
-    const price = displayProduct.price ?? 299
+    const price = displayProduct.price ?? 45000
     const originalPrice = displayProduct.originalPrice
     const hasDiscount = originalPrice && originalPrice > price
     
     return (
       <div className="flex items-baseline gap-3">
         <span className="text-[#B8941F] text-2xl sm:text-3xl font-bold tracking-tight">
-          ${typeof price === 'number' ? price.toFixed(2) : price}
+          ₦{typeof price === 'number' ? price.toLocaleString('en-NG') : price}
         </span>
         {hasDiscount && (
           <span className="text-black/20 text-sm line-through">
-            ${typeof originalPrice === 'number' ? originalPrice.toFixed(2) : originalPrice}
+            ₦{typeof originalPrice === 'number' ? originalPrice.toLocaleString('en-NG') : originalPrice}
           </span>
         )}
       </div>
